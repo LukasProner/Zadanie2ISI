@@ -1,6 +1,7 @@
 import tkinter as tk
 from tkinter import messagebox
 import json
+from collections import deque
 
 with open("states.json", "r") as file:
     data = json.load(file)
@@ -56,23 +57,44 @@ def move_player(player_index, direction):
     if direction == "up" and row > 0:
         while row > 0 and (row - 1, col) not in obstacles():
             row -= 1
-            if row == 0 or (row, col) in obstacles():
+            if (row, col) in obstacles():
                 break
+            elif row == 0:
+                change_player_index(0)
+                players.pop(player_index)
+                print_player_list()
+                return
     elif direction == "down" and row < GRID_SIZE - 1:
         while row < GRID_SIZE - 1 and (row + 1, col) not in obstacles():
             row += 1
-            if row == GRID_SIZE - 1 or (row, col) in obstacles():
+            if (row, col) in obstacles():
                 break
+            elif row == GRID_SIZE - 1 :
+                change_player_index(0)
+                players.pop(player_index)
+                print_player_list()
+                return
+
     elif direction == "left" and col > 0:
         while col > 0 and (row, col - 1) not in obstacles():
             col -= 1
-            if col == 0 or (row, col) in obstacles():
+            if (row, col) in obstacles():
                 break
+            elif col == 0 :
+                change_player_index(0)
+                players.pop(player_index)
+                print_player_list()
+                return
     elif direction == "right" and col < GRID_SIZE - 1:
         while col < GRID_SIZE - 1 and (row, col + 1) not in obstacles():
             col += 1
-            if col == GRID_SIZE - 1 or (row, col) in obstacles():
+            if (row, col) in obstacles():
                 break
+            elif col == GRID_SIZE - 1:
+                change_player_index(0)
+                players.pop(player_index)
+                print_player_list()
+                return
 
     # Aktualizácia pozície hráča
     players[player_index]["position"] = (row, col)
@@ -104,20 +126,54 @@ def on_key_press(event):
         move_player(PLAYER_INDEX, "right")
     draw_elements()
 
-# Funkcia na zmenu indexu aktuálneho hráča
 def change_player_index(index):
     global PLAYER_INDEX
     if 0 <= index < len(players):
         PLAYER_INDEX = index
         messagebox.showinfo("Zmena hráča", f"Teraz ovládate hráča {PLAYER_INDEX + 1}")
 
-# Tlačidlá na zmenu hráča
-for i in range(len(players)):
-    tk.Button(window, text=f"Hráč {i + 1}", command=lambda i=i: change_player_index(i)).pack(side="left")
 
-# Spojenie ovládania s tlačidlami
+button_frame = tk.Frame(window)
+button_frame.pack(side="top")
+
+def print_player_list():
+    # Vymazanie existujúcich tlačidiel
+    for widget in button_frame.winfo_children():
+        widget.destroy()
+
+    # Vytvorenie nových tlačidiel pre každého hráča
+    for i in range(len(players)):
+        tk.Button(button_frame, text=f"{players[i]['color']}", command=lambda i=i: change_player_index(i)).pack(side="left")
+
+# Zavolajte túto funkciu na začiatku na inicializáciu tlačidiel
+print_player_list()
+
 window.bind("<KeyPress>", on_key_press)
 
-# Spustenie hry
 draw_elements()
 window.mainloop()
+
+def find_path_bfs(start, goal):
+    queue = deque([(start, [])])
+    visited = set()
+    visited.add(start)
+
+    while queue:
+        (current, path) = queue.popleft()
+
+        if current == goal:
+            return path
+
+        row, col = current
+        neighbors = [
+            (row - 1, col), (row + 1, col),
+            (row, col - 1), (row, col + 1)
+        ]
+
+        for neighbor in neighbors:
+            if 0 <= neighbor[0] < GRID_SIZE and 0 <= neighbor[1] < GRID_SIZE:
+                if neighbor not in visited and neighbor not in obstacles():
+                    visited.add(neighbor)
+                    queue.append((neighbor, path + [neighbor]))
+
+    return None

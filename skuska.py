@@ -136,11 +136,75 @@ def change_player_index(index):
 button_frame = tk.Frame(window)
 button_frame.pack(side="top")
 
+from collections import deque
+
+from collections import deque
+
+def find_path_bfs(start, goal):
+    queue = deque([(start, [])])  # Začneme od počiatočného bodu s prázdnou cestou
+    visited = set()
+    visited.add(start)  # Označíme počiatočný bod ako navštívený
+
+    while queue:
+        current, path = queue.popleft()  # Získame aktuálnu pozíciu a cestu
+
+        if current == goal:  # Ak sme našli cieľ, vrátime cestu
+            return path
+
+        row, col = current
+        directions = [
+            "left", "right",  # Hore, dole
+            "down", "up"   # Vľavo, vpravo
+        ]
+
+        for dr, dc in directions:
+            new_row, new_col = row, col
+
+
+
+    return None  # Ak cieľ nebol nájdený, vrátime None
+
+
+def execute_bfs_solution(start, goal):
+    path = find_path_bfs(start, goal)
+
+    if path is None:
+        messagebox.showerror("Chyba", "Žiadna cesta neexistuje!")
+        return
+
+    # Prechádzanie po ceste a vykonávanie pohybov
+    for move in path:
+        row, col = move
+        current_row, current_col = players[0]["position"]
+        direction = ""
+
+        # Rozhodnutie, ktorý smer pohybu je potrebné vykonať
+        if row < current_row:
+            direction = "up"
+        elif row > current_row:
+            direction = "down"
+        elif col < current_col:
+            direction = "left"
+        elif col > current_col:
+            direction = "right"
+
+        move_player(0, direction)  # 0 znamená hlavného hráča
+        draw_elements()  # Prekreslenie hracej plochy
+        window.update()  # Aktualizácia okna po každom kroku
+
+    messagebox.showinfo("Úspech", "Hráč dosiahol cieľ pomocou BFS!")
+
+# Tlačidlo na spustenie automatického pohybu pomocou BFS
+def bfs_button_click():
+    start = players[0]["position"]
+    execute_bfs_solution(start, goal_position)
+
 def print_player_list():
     # Vymazanie existujúcich tlačidiel
     for widget in button_frame.winfo_children():
         widget.destroy()
-
+    bfs_button = tk.Button(button_frame, text="Spustiť BFS", command=bfs_button_click)
+    bfs_button.pack(side="left", padx=5)
     # Vytvorenie nových tlačidiel pre každého hráča
     for i in range(len(players)):
         tk.Button(button_frame, text=f"{players[i]['color']}", command=lambda i=i: change_player_index(i)).pack(side="left")
@@ -153,27 +217,7 @@ window.bind("<KeyPress>", on_key_press)
 draw_elements()
 window.mainloop()
 
-def find_path_bfs(start, goal):
-    queue = deque([(start, [])])
-    visited = set()
-    visited.add(start)
 
-    while queue:
-        (current, path) = queue.popleft()
 
-        if current == goal:
-            return path
+#bfs_button = tk.Button(button_frame, text="Spustiť BFS", command=bfs_button_click)
 
-        row, col = current
-        neighbors = [
-            (row - 1, col), (row + 1, col),
-            (row, col - 1), (row, col + 1)
-        ]
-
-        for neighbor in neighbors:
-            if 0 <= neighbor[0] < GRID_SIZE and 0 <= neighbor[1] < GRID_SIZE:
-                if neighbor not in visited and neighbor not in obstacles():
-                    visited.add(neighbor)
-                    queue.append((neighbor, path + [neighbor]))
-
-    return None

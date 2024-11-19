@@ -160,9 +160,40 @@ from collections import deque
 
 GRID_SIZE = 5  # Veľkosť mriežky (napr. 5x5)
 
-def obstacles():
-    # Definuj prekážky v hre (napr. [(2, 2), (3, 3)])
-    return []
+def move_players_by_path(players, path):
+    # Iteruj cez každý krok v ceste
+    for player_index, direction in path:
+        row, col = players[player_index]["position"]
+
+        # Simuluj pohyb hráča podľa smeru
+        if direction == "up" and row > 0:
+            while row > 0 and (row - 1, col) not in obstacles() and (row - 1, col) not in [p["position"] for p in players if p != players[player_index]]:
+                row -= 1
+        elif direction == "down" and row < GRID_SIZE - 1:
+            while row < GRID_SIZE - 1 and (row + 1, col) not in obstacles() and (row + 1, col) not in [p["position"] for p in players if p != players[player_index]]:
+                row += 1
+        elif direction == "left" and col > 0:
+            while col > 0 and (row, col - 1) not in obstacles() and (row, col - 1) not in [p["position"] for p in players if p != players[player_index]]:
+                col -= 1
+        elif direction == "right" and col < GRID_SIZE - 1:
+            while col < GRID_SIZE - 1 and (row, col + 1) not in obstacles() and (row, col + 1) not in [p["position"] for p in players if p != players[player_index]]:
+                col += 1
+
+        # Ak hráč vypadol, zmeníme jeho pozíciu na (-1, -1)
+        if (row <= 0 and direction == "up") or (row >= GRID_SIZE - 1 and direction == "down") or (col <= 0 and direction == "left") or (col >= GRID_SIZE - 1 and direction == "right"):
+            row, col = -1, -1
+            print(f"Hráč {players[player_index]['color']} vypadol smerom {direction} z pozície ({players[player_index]['position']})")
+
+        # Aktualizácia pozície hráča
+        players[player_index]["position"] = (row, col)
+
+        # Ak hlavný hráč (index 0) dosiahol cieľ, hra končí
+        if player_index == 0:
+            check_goal()
+
+    # Vytlač aktuálnu pozíciu hráčov po vykonaní všetkých krokov
+    print_player_list()
+
 
 def find_shortest_path(players, goal):
     # Inicializácia fronty a navštívených stavov
@@ -218,40 +249,12 @@ def find_shortest_path(players, goal):
 
     return None  # Ak červený hráč nedosiahne cieľ
 
-
-
-
 def execute_bfs_solution(start, goal):
     path = find_shortest_path(data["players"], goal)
     print(path)
+    move_players_by_path(data["players"],path)
 
-    if path is None:
-        messagebox.showerror("Chyba", "Žiadna cesta neexistuje!")
-        return
 
-    # Prechádzanie po ceste a vykonávanie pohybov
-    for move in path:
-        row, col = move
-        current_row, current_col = players[0]["position"]
-        direction = ""
-
-        # Rozhodnutie, ktorý smer pohybu je potrebné vykonať
-        if row < current_row:
-            direction = "up"
-        elif row > current_row:
-            direction = "down"
-        elif col < current_col:
-            direction = "left"
-        elif col > current_col:
-            direction = "right"
-
-        move_player(0, direction)  # 0 znamená hlavného hráča
-        draw_elements()  # Prekreslenie hracej plochy
-        window.update()  # Aktualizácia okna po každom kroku
-
-    messagebox.showinfo("Úspech", "Hráč dosiahol cieľ pomocou BFS!")
-
-# Tlačidlo na spustenie automatického pohybu pomocou BFS
 def bfs_button_click():
     start = players[0]["position"]
     execute_bfs_solution(start, goal_position)

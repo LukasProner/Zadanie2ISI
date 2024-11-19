@@ -1,12 +1,26 @@
 {
     "grid_size": 5,
     "cell_size": 50,
-    "players": [
+    "players1": [
         {"position": [0, 4], "color": "red"},
         {"position": [0, 0], "color": "blue"},
         {"position": [4, 1], "color": "green"},
         {"position": [3, 3], "color": "yellow"},
         {"position": [1, 2], "color": "orange"}
+    ],
+    "players1": [
+        {"position": [4, 1], "color": "red"},
+        {"position": [2, 1], "color": "blue"},
+        {"position": [1, 4], "color": "green"},
+        {"position": [3, 3], "color": "yellow"},
+        {"position": [0, 2], "color": "orange"}
+    ],
+    "players": [
+        {"position": [4, 4], "color": "red"},
+        {"position": [3, 3], "color": "blue"},
+        {"position": [1, 1], "color": "green"},
+        {"position": [4, 1], "color": "yellow"},
+        {"position": [0, 3], "color": "orange"}
     ],
     "goal_position": [2, 2]
 }

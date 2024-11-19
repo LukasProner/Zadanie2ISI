@@ -158,9 +158,11 @@ def draw_grid(players):
 
 from collections import deque
 
-GRID_SIZE = 5  # Veľkosť mriežky (napr. 5x5)
-
 def move_players_by_path(players, path):
+    if path is None:
+        messagebox.showerror("Chyba", "Žiadna cesta neexistuje!")
+        return
+
     # Iteruj cez každý krok v ceste
     for player_index, direction in path:
         row, col = players[player_index]["position"]
@@ -203,7 +205,7 @@ def find_shortest_path(players, goal):
 
     while queue:
         current_positions, path = queue.popleft()
-        print("Aktuálne pozície hráčov: ", current_positions)
+        #print("Aktuálne pozície hráčov: ", current_positions)
 
         # Skontroluj, či červený hráč (hráč 1) dosiahol cieľ
         if current_positions[0] == goal:
@@ -236,7 +238,7 @@ def find_shortest_path(players, goal):
 
                 if (new_row <= 0 and direction == "up") or (new_row >= GRID_SIZE-1 and direction == "down") or (new_col <= 0 and direction== "left") or (new_col >= GRID_SIZE-1 and direction=="right"):
                     new_row, new_col = -1, -1
-                    print(f"vypadol {players[i]["color"]} smerom {direction} z pozicie {row}{col}")
+                   # print(f"vypadol {players[i]["color"]} smerom {direction} z pozicie {row}{col}")
 
                 # Aktualizuj pozíciu hráča
                 new_positions[i] = (new_row, new_col)
@@ -248,7 +250,6 @@ def find_shortest_path(players, goal):
                     queue.append((new_positions_tuple, path + [(i, direction)]))
 
     return None  # Ak červený hráč nedosiahne cieľ
-
 def execute_bfs_solution(start, goal):
     path = find_shortest_path(data["players"], goal)
     print(path)
@@ -265,7 +266,6 @@ def print_player_list():
         widget.destroy()
     bfs_button = tk.Button(button_frame, text="Spustiť BFS", command=bfs_button_click)
     bfs_button.pack(side="left", padx=5)
-    # Vytvorenie nových tlačidiel pre každého hráča
     for i in range(len(players)):
         tk.Button(button_frame, text=f"{players[i]['color']}", command=lambda i=i: change_player_index(i)).pack(side="left")
 

@@ -37,7 +37,7 @@ def draw_grid():
 # Vykreslenie figúrok a cieľa
 def draw_elements():
     canvas.delete("all")
-    draw_grid()
+    draw_grid(data["players"])
 
     # Vykreslenie cieľa
     goal_x1, goal_y1 = goal_position[1] * CELL_SIZE, goal_position[0] * CELL_SIZE
@@ -103,6 +103,35 @@ def move_player(player_index, direction):
     if player_index == 0:
         check_goal()
 
+
+def simulate_move(position, direction, grid_size, obstacles):
+    row, col = position
+
+    if direction == "up" and row > 0:
+        while row > 0 and (row - 1, col) not in obstacles:
+            row -= 1
+            if (row, col) in obstacles:
+                break
+    elif direction == "down" and row < grid_size - 1:
+        while row < grid_size - 1 and (row + 1, col) not in obstacles:
+            row += 1
+            if (row, col) in obstacles:
+                break
+    elif direction == "left" and col > 0:
+        while col > 0 and (row, col - 1) not in obstacles:
+            col -= 1
+            if (row, col) in obstacles:
+                break
+    elif direction == "right" and col < grid_size - 1:
+        while col < grid_size - 1 and (row, col + 1) not in obstacles:
+            col += 1
+            if (row, col) in obstacles:
+                break
+
+    # Návrat novej pozície
+    return (row, col)
+
+
 # Pomocná funkcia na získanie pozícií všetkých hráčov ako prekážok
 def obstacles():
     return {player["position"] for player in players}
@@ -140,33 +169,87 @@ from collections import deque
 
 from collections import deque
 
-def find_path_bfs(start, goal):
-    queue = deque([(start, [])])  # Začneme od počiatočného bodu s prázdnou cestou
+from collections import deque
+
+
+def draw_grid(players):
+    """Vykreslí mriežku so zobrazením pozícií hráčov a prekážok."""
+    grid = [["." for _ in range(GRID_SIZE)] for _ in range(GRID_SIZE)]
+
+
+    # Vykresli pozície hráčov
+    for player in players:
+        row, col = player["position"]
+        grid[row][col] = player.get("color", "P")
+
+    # Vytlač mriežku
+    for row in grid:
+        print(" ".join(row))
+    print("\n" + "-" * (2 * GRID_SIZE - 1))  # Oddelí každú iteráciu
+
+
+def find_shortest_path(players, goal):
+    # Inicializácia fronty a množiny navštívených stavov
+    queue = deque([(tuple(tuple(player["position"]) for player in players), [])])  # (pozície hráčov, cesta)
     visited = set()
-    visited.add(start)  # Označíme počiatočný bod ako navštívený
+    visited.add(tuple(tuple(player["position"]) for player in players))  # Preveď pozície na tuple
 
     while queue:
-        current, path = queue.popleft()  # Získame aktuálnu pozíciu a cestu
+        current_positions, path = queue.popleft()
+        print("Aktuálne pozície hráčov: ", current_positions)
 
-        if current == goal:  # Ak sme našli cieľ, vrátime cestu
-            return path
+        # Vykreslenie mriežky
+        players_with_positions = [{"position": pos} for pos in current_positions]
+        draw_grid(players_with_positions)
 
-        row, col = current
-        directions = [
-            "left", "right",  # Hore, dole
-            "down", "up"   # Vľavo, vpravo
-        ]
+        # Skontroluj, či niektorý hráč dosiahol cieľ
+        for pos in current_positions:
+            if pos == goal:
+                return path
 
-        for dr, dc in directions:
-            new_row, new_col = row, col
+        # Pre každého hráča simuluj všetky možné smery pohybu
+        for i, (row, col) in enumerate(current_positions):
+            directions = ["up", "down", "left", "right"]
+            for direction in directions:
+                new_positions = list(current_positions)  # Skopíruj aktuálne pozície
+                new_row, new_col = row, col
 
+                # Simulácia pohybu v zadanom smere
+                if direction == "up":
+                    while new_row > 0 and (new_row - 1, col) not in obstacles():
+                        new_row -= 1
+                        if (new_row, col) in current_positions:
+                            break
+                elif direction == "down":
+                    while new_row < GRID_SIZE - 1 and (new_row + 1, col) not in obstacles():
+                        new_row += 1
+                        if (new_row, col) in current_positions:
+                            break
+                elif direction == "left":
+                    while new_col > 0 and (row, new_col - 1) not in obstacles():
+                        new_col -= 1
+                        if (row, new_col) in current_positions:
+                            break
+                elif direction == "right":
+                    while new_col < GRID_SIZE - 1 and (row, new_col + 1) not in obstacles():
+                        new_col += 1
+                        if (row, new_col) in current_positions:
+                            break
 
+                # Aktualizuj pozíciu hráča
+                new_positions[i] = (new_row, new_col)
 
-    return None  # Ak cieľ nebol nájdený, vrátime None
+                # Skontroluj, či už táto kombinácia bola navštívená
+                new_positions_tuple = tuple(new_positions)
+                if new_positions_tuple not in visited:
+                    visited.add(new_positions_tuple)
+                    queue.append((new_positions_tuple, path + [(i, direction)]))  # Pridaj hráča a smer
+
+    return None  # Ak sa cieľ nenašiel
 
 
 def execute_bfs_solution(start, goal):
-    path = find_path_bfs(start, goal)
+    path = find_shortest_path(data["players"], goal)
 
     if path is None:
         messagebox.showerror("Chyba", "Žiadna cesta neexistuje!")

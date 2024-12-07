@@ -2,6 +2,8 @@ import tkinter as tk
 from tkinter import messagebox
 import json
 from collections import deque
+import time
+import heapq
 
 with open("states.json", "r") as file:
     data = json.load(file)
@@ -24,141 +26,157 @@ canvas.pack()
 players = [{"position": tuple(player["position"]), "color": player["color"]} for player in data["players"]]
 goal_position = tuple(data["goal_position"])
 
-# Vykreslenie hracej plochy
-def draw_grid():
-    for row in range(GRID_SIZE):
-        for col in range(GRID_SIZE):
-            x1 = col * CELL_SIZE
-            y1 = row * CELL_SIZE
-            x2 = x1 + CELL_SIZE
-            y2 = y1 + CELL_SIZE
-            canvas.create_rectangle(x1, y1, x2, y2, outline="black")
+button_frame = tk.Frame(window)
+button_frame.pack(side="top")
+# Draw grid
+for i in range(GRID_SIZE):
+    for j in range(GRID_SIZE):
+        canvas.create_rectangle(
+            j * CELL_SIZE, i * CELL_SIZE,
+            (j + 1) * CELL_SIZE, (i + 1) * CELL_SIZE,
+            fill="white", outline="black"
+        )
 
-# Vykreslenie figúrok a cieľa
-def draw_elements():
-    canvas.delete("all")
-    draw_grid(data["players"])
+# Draw players and goal
+player_ovals = []
+for player in players:
+    x, y = player["position"]
+    oval = canvas.create_oval(
+        y * CELL_SIZE, x * CELL_SIZE,
+        (y + 1) * CELL_SIZE, (x + 1) * CELL_SIZE,
+        fill=player["color"]
+    )
+    player_ovals.append(oval)
 
-    # Vykreslenie cieľa
-    goal_x1, goal_y1 = goal_position[1] * CELL_SIZE, goal_position[0] * CELL_SIZE
-    goal_x2, goal_y2 = goal_x1 + CELL_SIZE, goal_y1 + CELL_SIZE
-    canvas.create_rectangle(goal_x1, goal_y1, goal_x2, goal_y2, fill="grey", tags="goal")
+goal_oval = canvas.create_oval(
+    goal_position[1] * CELL_SIZE, goal_position[0] * CELL_SIZE,
+    (goal_position[1] + 1) * CELL_SIZE, (goal_position[0] + 1) * CELL_SIZE,
+    fill="gold"
+)
 
-    # Vykreslenie hráčov
-    for player in players:
-        player_x1, player_y1 = player["position"][1] * CELL_SIZE, player["position"][0] * CELL_SIZE
-        player_x2, player_y2 = player_x1 + CELL_SIZE, player_y1 + CELL_SIZE
-        canvas.create_rectangle(player_x1, player_y1, player_x2, player_y2, fill=player["color"], tags="player")
+from collections import deque
 
-# Logika pohybu pre konkrétneho hráča
-def move_player(player_index, direction):
-    row, col = players[player_index]["position"]
+def find_shortest_path(players, goal, search_type='bfs'):
+    if search_type == 'bfs':
+        queue = deque([(tuple(tuple(player["position"]) for player in players), [])])
+        visited = set()
+        visited.add(tuple(tuple(player["position"]) for player in players))
+        all_paths = []  # Zoznam na ukladanie všetkých ciest
 
-    if direction == "up" and row > 0:
-        while row > 0 and (row - 1, col) not in obstacles():
-            row -= 1
-            if (row, col) in obstacles():
-                break
-            elif row == 0:
-                change_player_index(0)
-                players.pop(player_index)
-                print_player_list()
-                return
-    elif direction == "down" and row < GRID_SIZE - 1:
-        while row < GRID_SIZE - 1 and (row + 1, col) not in obstacles():
-            row += 1
-            if (row, col) in obstacles():
-                break
-            elif row == GRID_SIZE - 1 :
-                change_player_index(0)
-                players.pop(player_index)
-                print_player_list()
-                return
+        while queue:
+            current_positions, path = queue.popleft()
 
-    elif direction == "left" and col > 0:
-        while col > 0 and (row, col - 1) not in obstacles():
-            col -= 1
-            if (row, col) in obstacles():
-                break
-            elif col == 0 :
-                change_player_index(0)
-                players.pop(player_index)
-                print_player_list()
-                return
-    elif direction == "right" and col < GRID_SIZE - 1:
-        while col < GRID_SIZE - 1 and (row, col + 1) not in obstacles():
-            col += 1
-            if (row, col) in obstacles():
-                break
-            elif col == GRID_SIZE - 1:
-                change_player_index(0)
-                players.pop(player_index)
-                print_player_list()
-                return
+            all_paths.append(path)
+            # Skontroluj, či červený hráč (hráč 1) dosiahol cieľ
+            if current_positions[0] == goal:
+                return path, all_paths  # Vráti optimálnu cestu a všetky prejdené cesty
 
-    # Aktualizácia pozície hráča
-    players[player_index]["position"] = (row, col)
+            # Pre každého hráča simuluj pohyb
+            for i, (row, col) in enumerate(current_positions):
+                if (row, col) == (-1, -1):  # Hráč už vypadol
+                    continue
 
-    # Ak hlavný hráč dosiahol cieľ, hra končí
-    if player_index == 0:
-        check_goal()
+                directions = ["up", "down", "left", "right"]
+                for direction in directions:
+                    new_positions = list(current_positions)
+                    new_row, new_col = row, col
 
-# Pomocná funkcia na získanie pozícií všetkých hráčov ako prekážok
+                    # Simulácia pohybu
+                    if direction == "up":
+                        while new_row > 0 and (new_row - 1, col) not in current_positions:
+                            new_row -= 1
+                    elif direction == "down":
+                        while new_row < GRID_SIZE - 1 and (new_row + 1, col) not in current_positions:
+                            new_row += 1
+                    elif direction == "left":
+                        while new_col > 0 and (row, new_col - 1) not in current_positions:
+                            new_col -= 1
+                    elif direction == "right":
+                        while new_col < GRID_SIZE - 1 and (row, new_col + 1) not in current_positions:
+                            new_col += 1
+
+                    if (new_row <= 0 and direction == "up") or (new_row >= GRID_SIZE-1 and direction == "down") or (new_col <= 0 and direction == "left") or (new_col >= GRID_SIZE-1 and direction == "right"):
+                        new_row, new_col = -1, -1
+
+                    # Aktualizuj pozíciu hráča
+                    new_positions[i] = (new_row, new_col)
+
+                    # Skontroluj, či sme tento stav už navštívili
+                    new_positions_tuple = tuple(new_positions)
+                    if new_positions_tuple not in visited:
+                        visited.add(new_positions_tuple)
+                        queue.append((new_positions_tuple, path + [(i, direction)]))
+
+        return None, all_paths  # Ak červený hráč nedosiahne cieľ
+    if search_type == 'dfs':
+        stack = [(tuple(tuple(player["position"]) for player in players), [])]
+        visited = set()
+        visited.add(tuple(tuple(player["position"]) for player in players))
+        all_paths = []  # Zoznam na ukladanie všetkých ciest
+
+        while stack:
+            current_positions, path = stack.pop()  # Použi pop pre DFS (LIFO)
+
+            all_paths.append(path)
+            # Skontroluj, či červený hráč (hráč 1) dosiahol cieľ
+            if current_positions[0] == goal:
+                return path, all_paths  # Vráti optimálnu cestu a všetky prejdené cesty
+
+            # Pre každého hráča simuluj pohyb
+            for i, (row, col) in enumerate(current_positions):
+                if (row, col) == (-1, -1):  # Hráč už vypadol
+                    continue
+
+                directions = ["up", "down", "left", "right"]
+                for direction in directions:
+                    new_positions = list(current_positions)
+                    new_row, new_col = row, col
+
+                    # Simulácia pohybu
+                    if direction == "up":
+                        while new_row > 0 and (new_row - 1, col) not in current_positions:
+                            new_row -= 1
+                    elif direction == "down":
+                        while new_row < GRID_SIZE - 1 and (new_row + 1, col) not in current_positions:
+                            new_row += 1
+                    elif direction == "left":
+                        while new_col > 0 and (row, new_col - 1) not in current_positions:
+                            new_col -= 1
+                    elif direction == "right":
+                        while new_col < GRID_SIZE - 1 and (row, new_col + 1) not in current_positions:
+                            new_col += 1
+
+                    if (new_row <= 0 and direction == "up") or (
+                            new_row >= GRID_SIZE - 1 and direction == "down") or (
+                            new_col <= 0 and direction == "left") or (
+                            new_col >= GRID_SIZE - 1 and direction == "right"):
+                        new_row, new_col = -1, -1
+
+                    new_positions[i] = (new_row, new_col)
+
+                    new_positions_tuple = tuple(new_positions)
+                    if new_positions_tuple not in visited:
+                        visited.add(new_positions_tuple)
+                        stack.append((new_positions_tuple, path + [(i, direction)]))
+
+        return None, all_paths  # Ak červený hráč nedosiahne cieľ
+
+
 def obstacles():
     return {player["position"] for player in players}
 
-# Kontrola či hlavný hráč dosiahol cieľ
-def check_goal():
-    if players[0]["position"] == goal_position:
-        messagebox.showinfo("Gratulujeme!", "Hlavný hráč dosiahol cieľ!")
-    draw_elements()
+def update_canvas(positions):
+    for i, (x, y) in enumerate(positions):
+        canvas.coords(
+            player_ovals[i],
+            y * CELL_SIZE, x * CELL_SIZE,
+            (y + 1) * CELL_SIZE, (x + 1) * CELL_SIZE
+        )
+    window.update()
 
-# Nastavenie ovládania
-def on_key_press(event):
-    global PLAYER_INDEX
-    if event.keysym == "Up":
-        move_player(PLAYER_INDEX, "up")
-    elif event.keysym == "Down":
-        move_player(PLAYER_INDEX, "down")
-    elif event.keysym == "Left":
-        move_player(PLAYER_INDEX, "left")
-    elif event.keysym == "Right":
-        move_player(PLAYER_INDEX, "right")
-    draw_elements()
-
-def change_player_index(index):
-    global PLAYER_INDEX
-    if 0 <= index < len(players):
-        PLAYER_INDEX = index
-        messagebox.showinfo("Zmena hráča", f"Teraz ovládate hráča {PLAYER_INDEX + 1}")
-
-
-button_frame = tk.Frame(window)
-button_frame.pack(side="top")
-
-
-from collections import deque
-
-
-def draw_grid(players):
-    """Vykreslí mriežku so zobrazením pozícií hráčov a prekážok."""
-    grid = [["." for _ in range(GRID_SIZE)] for _ in range(GRID_SIZE)]
-
-
-    # Vykresli pozície hráčov
-    for player in players:
-        row, col = player["position"]
-        grid[row][col] = player.get("color", "P")
-
-    # Vytlač mriežku
-    for row in grid:
-        print(" ".join(row))
-    print("\n" + "-" * (2 * GRID_SIZE - 1))  # Oddelí každú iteráciu
-
-
-from collections import deque
 
 def move_players_by_path(players, path):
+    players = [{"position": tuple(player["position"]), "color": player["color"]} for player in data["players"]]
     if path is None:
         messagebox.showerror("Chyba", "Žiadna cesta neexistuje!")
         return
@@ -186,31 +204,45 @@ def move_players_by_path(players, path):
             row, col = -1, -1
             print(f"Hráč {players[player_index]['color']} vypadol smerom {direction} z pozície ({players[player_index]['position']})")
 
-        # Aktualizácia pozície hráča
         players[player_index]["position"] = (row, col)
 
-        # Ak hlavný hráč (index 0) dosiahol cieľ, hra končí
-        if player_index == 0:
-            check_goal()
+        update_canvas([player["position"] for player in players])
 
-    # Vytlač aktuálnu pozíciu hráčov po vykonaní všetkých krokov
-    print_player_list()
+        time.sleep(0.1)
+
+# Funkcia na vykonanie BFS a zobrazenie všetkých prejdených ciest
+def execute_bfs_solution(start, goal, search_type='bfs'):
+    if search_type == 'bfs':
+        optimal_path, all_paths = find_shortest_path(data["players"], goal, search_type='bfs')
+    elif search_type == 'dfs':
+        optimal_path, all_paths = find_shortest_path(data["players"], goal, search_type='dfs')
+    elif search_type == 'greedy':
+        optimal_path, all_paths = greedy_search(data["players"], goal)
+
+    print("Optimálna cesta:", optimal_path)
+    print("Všetky prejdené cesty:")
+    for i, p in enumerate(all_paths):
+        print(f"Cesta {i + 1}: {p}")
+        move_players_by_path(data["players"], p)
 
 
-def find_shortest_path(players, goal):
-    # Inicializácia fronty a navštívených stavov
-    queue = deque([(tuple(tuple(player["position"]) for player in players), [])])
+def greedy_search(players, goal):
+    # Inicializácia prioritného radu
+    priority_queue = []
+    start_positions = tuple(tuple(player["position"]) for player in players)
+    heapq.heappush(priority_queue, (heuristic(start_positions[0], goal), start_positions, []))
+
     visited = set()
-    visited.add(tuple(tuple(player["position"]) for player in players))
+    visited.add(start_positions)
+    all_paths = []  # Zoznam na ukladanie všetkých ciest
 
-    while queue:
-        current_positions, path = queue.popleft()
-        #print("Aktuálne pozície hráčov: ", current_positions)
+    while priority_queue:
+        _, current_positions, path = heapq.heappop(priority_queue)
 
+        all_paths.append(path)
         # Skontroluj, či červený hráč (hráč 1) dosiahol cieľ
         if current_positions[0] == goal:
-            print(players[0]["color"])
-            return path
+            return path, all_paths  # Vráti optimálnu cestu a všetky prejdené cesty
 
         # Pre každého hráča simuluj pohyb
         for i, (row, col) in enumerate(current_positions):
@@ -236,9 +268,9 @@ def find_shortest_path(players, goal):
                     while new_col < GRID_SIZE - 1 and (row, new_col + 1) not in current_positions:
                         new_col += 1
 
-                if (new_row <= 0 and direction == "up") or (new_row >= GRID_SIZE-1 and direction == "down") or (new_col <= 0 and direction== "left") or (new_col >= GRID_SIZE-1 and direction=="right"):
+                if (new_row <= 0 and direction == "up") or (new_row >= GRID_SIZE - 1 and direction == "down") or (
+                        new_col <= 0 and direction == "left") or (new_col >= GRID_SIZE - 1 and direction == "right"):
                     new_row, new_col = -1, -1
-                   # print(f"vypadol {players[i]["color"]} smerom {direction} z pozicie {row}{col}")
 
                 # Aktualizuj pozíciu hráča
                 new_positions[i] = (new_row, new_col)
@@ -247,34 +279,45 @@ def find_shortest_path(players, goal):
                 new_positions_tuple = tuple(new_positions)
                 if new_positions_tuple not in visited:
                     visited.add(new_positions_tuple)
-                    queue.append((new_positions_tuple, path + [(i, direction)]))
+                    # Pridaj do prioritného radu s ohodnotením podľa heuristiky
+                    heapq.heappush(priority_queue, (
+                        heuristic(new_positions_tuple[0], goal),
+                        new_positions_tuple,
+                        path + [(i, direction)]
+                    ))
 
-    return None  # Ak červený hráč nedosiahne cieľ
-def execute_bfs_solution(start, goal):
-    path = find_shortest_path(data["players"], goal)
-    print(path)
-    move_players_by_path(data["players"],path)
+    return None, all_paths  # Ak červený hráč nedosiahne cieľ
 
 
-def bfs_button_click():
-    start = players[0]["position"]
-    execute_bfs_solution(start, goal_position)
+def heuristic(position, goal):
+    """
+    Manhattanova vzdialenosť ako heuristika.
+    """
+    if position == (-1, -1):  # Ak hráč už vypadol, vráti vysokú hodnotu
+        return float('inf')
+    return abs(position[0] - goal[0]) + abs(position[1] - goal[1])
 
-def print_player_list():
-    # Vymazanie existujúcich tlačidiel
-    for widget in button_frame.winfo_children():
-        widget.destroy()
-    bfs_button = tk.Button(button_frame, text="Spustiť BFS", command=bfs_button_click)
-    bfs_button.pack(side="left", padx=5)
-    for i in range(len(players)):
-        tk.Button(button_frame, text=f"{players[i]['color']}", command=lambda i=i: change_player_index(i)).pack(side="left")
 
-# Zavolajte túto funkciu na začiatku na inicializáciu tlačidiel
-print_player_list()
+def bfs_search():
+    execute_bfs_solution(players[0]["position"], goal_position, search_type='bfs')
 
-window.bind("<KeyPress>", on_key_press)
+def dfs_search():
+    execute_bfs_solution(players[0]["position"], goal_position, search_type='dfs')
 
-draw_elements()
+def greedy():
+    execute_bfs_solution(players[0]["position"], goal_position, search_type='greedy')
+
+bfs_button = tk.Button(window, text="BFS", command=bfs_search)
+bfs_button.pack(side=tk.LEFT)
+
+dfs_button = tk.Button(window, text="DFS", command=dfs_search)
+dfs_button.pack(side=tk.LEFT)
+
+dfs_button = tk.Button(window, text="Greedy", command=greedy)
+dfs_button.pack(side=tk.LEFT)
+
+#execute_bfs_solution(players[0]["position"], goal_position, search_type='bfs')
+
 window.mainloop()
 
 
